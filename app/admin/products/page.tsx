@@ -923,8 +923,20 @@ export default function AdminProducts() {
                     ))}
                   </div>
 
-                  <div className="border-t border-white/10 pt-4">
-                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-3">SIZE CHART</label>
+                </div>
+
+                {/* Form Area */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-2">PRODUCT NAME</label>
+                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-white/40 transition-colors" placeholder="e.g. EXTRA HOODIE" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-2">DESCRIPTION</label>
+                    <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-black border border-white/10 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-white/40 transition-colors" placeholder="Product details..."></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-2">SIZE CHART</label>
                     <label htmlFor="sizeChartImage" className="border border-dashed border-white/20 rounded-xl min-h-40 flex flex-col items-center justify-center hover:bg-white/5 transition-colors cursor-pointer group overflow-hidden">
                       <input
                         id="sizeChartImage"
@@ -961,18 +973,6 @@ export default function AdminProducts() {
                         REMOVE SIZE CHART
                       </button>
                     )}
-                  </div>
-                </div>
-
-                {/* Form Area */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-2">PRODUCT NAME</label>
-                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-white/40 transition-colors" placeholder="e.g. EXTRA HOODIE" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-2">DESCRIPTION</label>
-                    <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-black border border-white/10 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-white/40 transition-colors" placeholder="Product details..."></textarea>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
