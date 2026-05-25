@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { assetPath } from "@/lib/assetPath";
 import { formatPrice } from "@/lib/products";
 import { createClient } from "@/lib/supabase/browser";
@@ -34,6 +34,8 @@ export default function ProductClient({ product }) {
   const selectedVariant = liveProduct.variants?.find((entry) => entry.size === selectedSize);
   const selectedStock = Number(selectedVariant?.stock || 0);
   const showLowStock = selectedStock > 0 && selectedStock < 10;
+  const touchStartX = useRef(null);
+  const currentImage = gallery[imageIndex] || gallery[0] || liveProduct.imageUrl;
 
   useEffect(() => {
     setLiveProduct(product);
@@ -120,14 +122,61 @@ export default function ProductClient({ product }) {
     setDrawerOpen(true);
   }
 
+  function showGalleryImage(nextIndex) {
+    if (gallery.length <= 1) return;
+    setImageIndex((nextIndex + gallery.length) % gallery.length);
+  }
+
+  function showNextImage(direction) {
+    if (gallery.length <= 1) return;
+    setImageIndex((current) => (current + direction + gallery.length) % gallery.length);
+  }
+
+  function handleTouchStart(event) {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartX.current === null) return;
+
+    const touchEndX = event.changedTouches[0]?.clientX;
+    if (typeof touchEndX !== "number") {
+      touchStartX.current = null;
+      return;
+    }
+
+    const distance = touchStartX.current - touchEndX;
+    touchStartX.current = null;
+
+    if (Math.abs(distance) < 40) return;
+    showNextImage(distance > 0 ? 1 : -1);
+  }
+
+  function handleGalleryKeyDown(event) {
+    if (event.key === "ArrowRight") {
+      showNextImage(1);
+    }
+    if (event.key === "ArrowLeft") {
+      showNextImage(-1);
+    }
+  }
+
   const cartItems = typeof window !== "undefined" && drawerOpen ? getCart() : [];
 
   return (
     <main className="product-page">
       <section className="product-section">
         <div className="image-box">
-          <div className="slider-wrapper">
-            <img src={gallery[imageIndex]} alt={liveProduct.name} className="main-product-img" />
+          <div
+            className="slider-wrapper"
+            role="region"
+            aria-label="Product images"
+            tabIndex={0}
+            onKeyDown={handleGalleryKeyDown}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <img src={currentImage} alt={liveProduct.name} className="main-product-img" draggable="false" />
           </div>
           <div className="dots" aria-label="Product gallery">
             {gallery.map((image, index) => (
@@ -136,7 +185,7 @@ export default function ProductClient({ product }) {
                 type="button"
                 aria-label={`Show image ${index + 1}`}
                 className={index === imageIndex ? "active" : ""}
-                onClick={() => setImageIndex(index)}
+                onClick={() => showGalleryImage(index)}
               />
             ))}
           </div>

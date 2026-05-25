@@ -22,6 +22,7 @@ interface Product {
   colors: string[];
   image: string;
   description: string;
+  sizeChartUrl: string;
   variants: { size: string; stock: number }[];
   colorVariants: { color: string; stock: number }[];
   reviews?: { id: string; customer_name: string; rating: number; review_text: string; is_approved: boolean; created_at: string }[];
@@ -59,6 +60,7 @@ const DEFAULT_COLORS = [
   'Yellow',
   'Pink',
   'Purple',
+  "Burgandy",
 ];
 
 const IMPORTED_STOCK = 99;
@@ -78,6 +80,7 @@ function websiteProductToAdminProduct(product: any): Product {
     colors,
     image: product.imageUrl || product.gallery?.[0] || '',
     description: product.description || '',
+    sizeChartUrl: product.sizeChartUrl || '',
     variants: sizes.map((size: string) => ({ size, stock: IMPORTED_STOCK })),
     colorVariants: colors.map((color: string) => ({ color, stock: IMPORTED_STOCK })),
     reviews: [],
@@ -91,6 +94,7 @@ export default function AdminProducts() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedSizeChartFile, setSelectedSizeChartFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState('');
@@ -103,7 +107,7 @@ export default function AdminProducts() {
   const [isSavingReview, setIsSavingReview] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '', price: '', discount: '', category: '', description: ''
+    name: '', price: '', discount: '', category: '', description: '', sizeChartUrl: ''
   });
 
   const [supabase] = useState(() => createClient());
@@ -132,6 +136,7 @@ export default function AdminProducts() {
       colors: (product.product_colors || []).filter((c: any) => Number(c.stock || 0) > 0).map((c: any) => c.color),
       image: assetPath(product.product_images?.[0]?.url || ''),
       description: product.description || '',
+      sizeChartUrl: assetPath(product.size_chart_url || ''),
       variants: (product.product_variants || []).map((variant: any) => ({ size: variant.size, stock: Number(variant.stock || 0) })),
       colorVariants: (product.product_colors || []).map((c: any) => ({ color: c.color, stock: Number(c.stock || 0) })),
       reviews: (product.product_reviews || []).map((r: any) => ({
@@ -212,6 +217,7 @@ export default function AdminProducts() {
           slug,
           name: product.name,
           description: product.description || '',
+          size_chart_url: product.sizeChartUrl || '',
           price: Number(product.price || 0),
           category: 'Shirt Night',
           is_active: true,
@@ -296,6 +302,15 @@ export default function AdminProducts() {
       }
     });
 
+    if (selectedSizeChartFile) {
+      if (!ALLOWED_IMAGE_TYPES.includes(selectedSizeChartFile.type)) {
+        errors.push(`${selectedSizeChartFile.name} must be JPEG, PNG, WEBP, or GIF.`);
+      }
+      if (selectedSizeChartFile.size > MAX_IMAGE_SIZE) {
+        errors.push(`${selectedSizeChartFile.name} must be 5MB or less.`);
+      }
+    }
+
     return errors;
   };
 
@@ -321,7 +336,7 @@ export default function AdminProducts() {
 
       setFormData({
         name: prod.name, price: prod.price.toString(), discount: prod.discount.toString(),
-        category: prod.category, description: prod.description
+        category: prod.category, description: prod.description, sizeChartUrl: prod.sizeChartUrl || ''
       });
       setSelectedSizes(nextSizes);
       setSizeStock(nextStock);
@@ -336,7 +351,7 @@ export default function AdminProducts() {
       setReviewDraft({ customer_name: '', rating: 5, review_text: '', is_approved: true });
     } else {
       setEditingProd(null);
-      setFormData({ name: '', price: '', discount: '', category: '', description: '' });
+      setFormData({ name: '', price: '', discount: '', category: '', description: '', sizeChartUrl: '' });
       setSelectedSizes([]);
       setSizeStock({});
       setSelectedColors(['Black']);
@@ -344,6 +359,7 @@ export default function AdminProducts() {
       setReviewDraft({ customer_name: '', rating: 5, review_text: '', is_approved: true });
     }
     setSelectedFiles([]);
+    setSelectedSizeChartFile(null);
     setIsModalOpen(true);
   };
 
@@ -521,6 +537,7 @@ export default function AdminProducts() {
       name: formData.name,
       slug: formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       description: formData.description,
+      size_chart_url: formData.sizeChartUrl.trim(),
       price: parseFloat(formData.price) || 0,
       category: formData.category,
       is_active: true,
@@ -528,11 +545,19 @@ export default function AdminProducts() {
     };
 
     let uploadedImages: UploadedImage[] = [];
+    let uploadedSizeChartPath = '';
     let createdProductId = '';
     let currentStep = 'checking admin access';
 
     try {
       if (editingProd) {
+        if (selectedSizeChartFile) {
+          currentStep = 'uploading size chart to Storage';
+          const sizeChartImage = await uploadSizeChartImage(editingProd.id);
+          uploadedSizeChartPath = sizeChartImage.path;
+          payload.size_chart_url = sizeChartImage.url;
+        }
+
         currentStep = 'updating product row';
         const { error: updateError } = await supabase.from('products').update(payload).eq('id', editingProd.id);
         if (updateError) throw updateError;
@@ -552,6 +577,13 @@ export default function AdminProducts() {
         const productId = crypto.randomUUID();
         currentStep = 'uploading product images to Storage';
         uploadedImages = await uploadProductImages(productId);
+
+        if (selectedSizeChartFile) {
+          currentStep = 'uploading size chart to Storage';
+          const sizeChartImage = await uploadSizeChartImage(productId);
+          uploadedSizeChartPath = sizeChartImage.path;
+          payload.size_chart_url = sizeChartImage.url;
+        }
 
         currentStep = 'creating product row';
         const { data: created, error: createError } = await supabase.from('products').insert({
@@ -574,8 +606,13 @@ export default function AdminProducts() {
       if (createdProductId) {
         await supabase.from('products').delete().eq('id', createdProductId);
       }
-      if (uploadedImages.length) {
-        await supabase.storage.from('product-images').remove(uploadedImages.map((image) => image.path));
+      const uploadedPaths = [
+        ...uploadedImages.map((image) => image.path),
+        uploadedSizeChartPath,
+      ].filter(Boolean);
+
+      if (uploadedPaths.length) {
+        await supabase.storage.from('product-images').remove(uploadedPaths);
       }
       setStatusMessage(`${currentStep}: ${error.message || 'Product could not be saved.'}`);
       setIsSaving(false);
@@ -585,6 +622,7 @@ export default function AdminProducts() {
     setIsModalOpen(false);
     setIsSaving(false);
     setSelectedFiles([]);
+    setSelectedSizeChartFile(null);
     setStatusMessage('Product saved.');
     await loadProducts();
   };
@@ -613,6 +651,28 @@ export default function AdminProducts() {
     }
 
     return uploaded;
+  };
+
+  const uploadSizeChartImage = async (productId: string) => {
+    if (!selectedSizeChartFile) return { path: '', url: formData.sizeChartUrl.trim(), sortOrder: 0 };
+
+    const extension = selectedSizeChartFile.name.split('.').pop() || 'jpg';
+    const path = `${productId}/size-chart-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(path, selectedSizeChartFile, {
+        contentType: selectedSizeChartFile.type || 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+    return {
+      path,
+      url: data.publicUrl,
+      sortOrder: 0,
+    };
   };
 
   const insertProductImages = async (productId: string, productName: string, images: UploadedImage[]) => {
@@ -861,6 +921,46 @@ export default function AdminProducts() {
                         )}
                       </div>
                     ))}
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <label className="block text-xs font-syncopate text-white/70 tracking-widest mb-3">SIZE CHART</label>
+                    <label htmlFor="sizeChartImage" className="border border-dashed border-white/20 rounded-xl min-h-40 flex flex-col items-center justify-center hover:bg-white/5 transition-colors cursor-pointer group overflow-hidden">
+                      <input
+                        id="sizeChartImage"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => setSelectedSizeChartFile(event.target.files?.[0] || null)}
+                      />
+                      {selectedSizeChartFile || formData.sizeChartUrl ? (
+                        <img
+                          src={selectedSizeChartFile ? URL.createObjectURL(selectedSizeChartFile) : formData.sizeChartUrl}
+                          alt="Size chart preview"
+                          className="h-40 w-full object-contain bg-black"
+                        />
+                      ) : (
+                        <>
+                          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <UploadCloud className="w-5 h-5 text-white/50" />
+                          </div>
+                          <p className="text-sm font-bold">Click to upload size chart</p>
+                          <p className="text-xs text-white/50 mt-1">JPEG, PNG up to 5MB</p>
+                        </>
+                      )}
+                    </label>
+                    {(selectedSizeChartFile || formData.sizeChartUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSizeChartFile(null);
+                          setFormData({ ...formData, sizeChartUrl: '' });
+                        }}
+                        className="mt-3 text-xs font-syncopate tracking-widest text-white/50 hover:text-white transition-colors"
+                      >
+                        REMOVE SIZE CHART
+                      </button>
+                    )}
                   </div>
                 </div>
 

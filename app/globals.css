@@ -457,12 +457,14 @@ img {
   border: 2px solid var(--cream);
   border-radius: 10px;
   box-shadow: 0 0 18px rgba(209, 204, 186, 0.2);
+  touch-action: pan-y;
 }
 
 .main-product-img {
   width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
+  user-select: none;
 }
 
 .dots {
