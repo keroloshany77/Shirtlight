@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/browser';
 import {
   monthlyRevenueData,
+  orderTotal,
   productRevenueData,
   recentActivity,
   statusBreakdown,
@@ -29,7 +30,7 @@ export default function AdminOverview() {
     const supabase = createClient();
 
     Promise.all([
-      supabase.from('orders').select('id,order_number,customer_name,total,status,created_at,order_items(product_name,quantity,line_total)'),
+      supabase.from('orders').select('id,order_number,customer_name,total,final_total,status,created_at,order_items(product_name,quantity,line_total)'),
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('products').select('id', { count: 'exact', head: true }),
     ]).then(([ordersResult, usersResult, productsResult]) => {
@@ -37,7 +38,7 @@ export default function AdminOverview() {
       const revenueOrders = orders.filter((order: any) => order.status !== 'Cancelled');
 
       setStats({
-        revenue: revenueOrders.reduce((sum: number, order: any) => sum + Number(order.total || 0), 0),
+        revenue: revenueOrders.reduce((sum: number, order: any) => sum + orderTotal(order), 0),
         orders: orders.length,
         users: usersResult.count || 0,
         products: productsResult.count || 0,

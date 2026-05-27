@@ -229,9 +229,8 @@ create index if not exists analytics_visits_traffic_source_idx on public.analyti
 -- Remove the old dedupe index (it used a non-IMMUTABLE expression on timestamptz -> date).
 drop index if exists public.analytics_visits_unique_daily_path_idx;
 
--- Optional dedupe to reduce noise from refreshes (same visitor + same page on the same day).
-create unique index if not exists analytics_visits_unique_daily_page
-on public.analytics_visits (visitor_id, page_path, visit_date);
+-- Keep raw visit rows so admin totals reflect actual page loads/navigations.
+drop index if exists public.analytics_visits_unique_daily_page;
 
 create or replace function public.is_admin()
 returns boolean

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetPath } from "@/lib/assetPath";
 import { formatPrice } from "@/lib/products";
+import { getVisitorId } from "@/lib/analytics/visitor";
 import { createClient } from "@/lib/supabase/browser";
 import { fetchProductById } from "@/lib/supabase/catalog";
 
@@ -119,6 +120,17 @@ export default function ProductClient({ product }) {
     }
 
     saveCart(cart);
+    fetch("/api/analytics/cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        visitor_id: getVisitorId(),
+        product_id: item.productId,
+        variant_id: item.variantId,
+        quantity: item.quantity,
+      }),
+      keepalive: true,
+    }).catch(() => {});
     setDrawerOpen(true);
   }
 

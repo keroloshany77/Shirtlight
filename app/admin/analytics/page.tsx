@@ -37,14 +37,19 @@ export default function AdminAnalytics() {
 
     const load = async () => {
       logSupabaseRequest('admin.analytics.loadOverview');
-      const [ordersResult, visitsResult] = await Promise.all([
+      const [ordersResult, visitsResult, legacyViewsResult] = await Promise.all([
         supabase
           .from('orders')
-          .select('created_at,total,status,order_items(product_name,quantity,line_total)')
+          .select('created_at,total,final_total,status,order_items(product_name,quantity,line_total)')
           .gte('created_at', since180),
         supabase
           .from('analytics_visits')
           .select('id,traffic_source,visitor_id,visit_date,created_at')
+          .gte('created_at', since30)
+          .limit(10000),
+        supabase
+          .from('page_views')
+          .select('id,source,visitor_id,created_at')
           .gte('created_at', since30)
           .limit(10000),
       ]);
@@ -52,7 +57,15 @@ export default function AdminAnalytics() {
       if (cancelled) return;
 
       const orders = ordersResult.data || [];
-      const visits = visitsResult.data || [];
+      const visits = [
+        ...(visitsResult.data || []),
+        ...((legacyViewsResult.data || []).map((view: any) => ({
+          id: view.id,
+          traffic_source: view.source,
+          visitor_id: view.visitor_id,
+          created_at: view.created_at,
+        }))),
+      ];
 
       setMonthlyRevenue(monthlyRevenueData(orders, 6));
       setProductRevenue(productRevenueData(orders, 6));

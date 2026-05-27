@@ -4,6 +4,7 @@ import { Search, Eye, X, UserX, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { createClient } from '@/lib/supabase/browser';
+import { orderTotal } from '@/lib/adminMetrics';
 import { logSupabaseRequest } from '@/lib/supabase/debug';
 
 interface User {
@@ -35,7 +36,7 @@ export default function AdminUsers() {
 
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .select('email,total,status');
+      .select('email,total,final_total,status');
 
     if (ordersError) return;
 
@@ -48,7 +49,7 @@ export default function AdminUsers() {
 
       const current = spendByEmail.get(email) || { orders: 0, spent: 0 };
       current.orders += 1;
-      current.spent += Number(order.total || 0);
+      current.spent += orderTotal(order);
       spendByEmail.set(email, current);
     });
 

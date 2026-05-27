@@ -1,4 +1,5 @@
 import "./globals.css";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 export const metadata = {
   title: "Shirt Night",
@@ -8,7 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AnalyticsTracker />
+        {children}
+      </body>
     </html>
   );
 }

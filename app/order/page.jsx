@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { assetPath } from "@/lib/assetPath";
+import { getVisitorId } from "@/lib/analytics/visitor";
 import { formatPrice } from "@/lib/products";
 
 const shippingZones = [
@@ -28,16 +29,6 @@ function readCart() {
   } catch {
     return [];
   }
-}
-
-function getVisitorId() {
-  const key = "shirtNightVisitorId";
-  let value = window.localStorage.getItem(key);
-  if (!value) {
-    value = crypto.randomUUID();
-    window.localStorage.setItem(key, value);
-  }
-  return value;
 }
 
 export default function OrderPage() {
