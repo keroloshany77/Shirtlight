@@ -8,7 +8,7 @@ export default function HomePage() {
       <section className="home-hero">
         <div
           className="home-hero-bg"
-          style={{ "--home-hero-bg": `url("${assetPath("/Images/Home/IMG_2016.PNG")}")` }}
+          style={{ "--home-hero-bg": `url("${assetPath("/Images/Home/home-img.PNG")}")` }}
         />
         <div className="hero-overlay" />
         <div className="hero-content">
