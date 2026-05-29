@@ -14,6 +14,28 @@ import {
 } from '@/lib/adminMetrics';
 import { logSupabaseRequest } from '@/lib/supabase/debug';
 
+const PAGE_SIZE = 1000;
+
+async function fetchAllRows<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+) {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await fetchPage(from, to);
+
+    if (error) throw error;
+
+    const page = data || [];
+    rows.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
 export default function AdminAnalytics() {
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
   const [productRevenue, setProductRevenue] = useState<any[]>([]);
@@ -37,34 +59,43 @@ export default function AdminAnalytics() {
 
     const load = async () => {
       logSupabaseRequest('admin.analytics.loadOverview');
-      const [ordersResult, visitsResult, legacyViewsResult] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('created_at,total,final_total,status,order_items(product_name,quantity,line_total)')
-          .gte('created_at', since180),
-        supabase
-          .from('analytics_visits')
-          .select('id,traffic_source,visitor_id,visit_date,created_at')
-          .gte('created_at', since30)
-          .limit(10000),
-        supabase
-          .from('page_views')
-          .select('id,source,visitor_id,created_at')
-          .gte('created_at', since30)
-          .limit(10000),
+      const [orders, visitRows, legacyViewRows] = await Promise.all([
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('orders')
+            .select('created_at,total,final_total,status,order_items(product_name,quantity,line_total)')
+            .gte('created_at', since180)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        ),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('analytics_visits')
+            .select('id,traffic_source,visitor_id,visit_date,created_at')
+            .gte('created_at', since30)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        ),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('page_views')
+            .select('id,source,visitor_id,created_at')
+            .gte('created_at', since30)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        ),
       ]);
 
       if (cancelled) return;
 
-      const orders = ordersResult.data || [];
       const visits = [
-        ...(visitsResult.data || []),
-        ...((legacyViewsResult.data || []).map((view: any) => ({
+        ...visitRows,
+        ...legacyViewRows.map((view: any) => ({
           id: view.id,
           traffic_source: view.source,
           visitor_id: view.visitor_id,
           created_at: view.created_at,
-        }))),
+        })),
       ];
 
       setMonthlyRevenue(monthlyRevenueData(orders, 6));
@@ -113,22 +144,28 @@ export default function AdminAnalytics() {
       logSupabaseRequest('admin.analytics.loadFunnel', funnelRange);
 
       const [cartResult, ordersResult] = await Promise.all([
-        supabase
-          .from('cart_events')
-          .select('visitor_id,user_id,created_at')
-          .gte('created_at', since)
-          .limit(50000),
-        supabase
-          .from('orders')
-          .select('visitor_id,user_id,created_at,status')
-          .gte('created_at', since)
-          .limit(20000),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('cart_events')
+            .select('visitor_id,user_id,created_at')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        ),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('orders')
+            .select('visitor_id,user_id,created_at,status')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        ),
       ]);
 
       if (cancelled) return;
 
-      const cartEvents = cartResult.data || [];
-      const orders = ordersResult.data || [];
+      const cartEvents = cartResult;
+      const orders = ordersResult;
 
       const keyFor = (row: any) => {
         if (row?.user_id) return `u:${row.user_id}`;
